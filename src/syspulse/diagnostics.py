@@ -64,6 +64,18 @@ def get_game_mode_status() -> bool | None:
         return None
 
 
+def get_ram_availability(min_available_percent: float = 20.0) -> tuple[float | None, bool]:
+    try:
+        import psutil
+        vm = psutil.virtual_memory()
+        if getattr(vm, "total", 0) <= 0:
+            return None, False
+        avail_pct = round((float(vm.available) / float(vm.total)) * 100.0, 1)
+        return avail_pct, avail_pct < min_available_percent
+    except Exception:
+        return None, False
+
+
 def get_top_memory_processes(limit: int = 5) -> list[ProcessMemoryInfo]:
     processes: list[ProcessMemoryInfo] = []
     for proc in psutil.process_iter(attrs=["pid", "name"]):

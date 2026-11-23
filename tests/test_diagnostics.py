@@ -5,6 +5,7 @@ from syspulse.diagnostics import (
     collect_gaming_audit,
     get_active_power_scheme,
     get_game_mode_status,
+    get_ram_availability,
 )
 
 
@@ -41,3 +42,11 @@ def test_collect_gaming_audit_flags_low_disk_and_sorts_processes() -> None:
     assert report.game_mode_enabled is True
     assert report.disk_low_space_warning is True
     assert [p.name for p in report.top_memory_processes] == ["big.exe", "small.exe"]
+
+
+def test_get_ram_availability_flags_low_headroom() -> None:
+    fake_vm = SimpleNamespace(total=16 * 1024**3, available=2 * 1024**3)
+    with patch("syspulse.diagnostics.psutil.virtual_memory", return_value=fake_vm):
+        pct, low_warn = get_ram_availability(min_available_percent=20.0)
+        assert pct == 12.5
+        assert low_warn is True
