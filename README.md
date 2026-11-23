@@ -1,38 +1,38 @@
 # syspulse
 
-A modular Python CLI for inspecting real-time system telemetry (CPU, RAM, and disk usage) and TCP endpoint latency, with structured JSON diagnostic export.
+Safe, non-destructive Windows 11 gaming telemetry, diagnostics, and dry-run-first system optimization CLI built in Python.
 
-## Project Structure
+## Features
 
-- `src/syspulse/metrics.py` - System telemetry collection via `psutil` (`SystemSnapshot`, `collect_snapshot`).
-- `src/syspulse/network.py` - TCP socket latency checks (`LatencyCheckResult`, `check_tcp_latency`).
-- `src/syspulse/cli.py` - Typer CLI and Rich table output with optional JSON report export.
-- `tests/` - Unit and CLI integration tests powered by `pytest`.
+- **Live System Snapshot (`syspulse`)**: Inspects CPU usage, RAM usage, free disk space, and TCP endpoint latency, with optional `--json-out` export.
+- **Gaming Readiness Audit (`syspulse audit`)**: Checks the active Windows power scheme, flags low disk headroom (`--min-free-gb`, default `25.0`), and lists top memory-consuming processes.
+-  **Dry-Run-First Optimizer (`syspulse tune`)**: Defaults to `--dry-run` so you can preview temporary file reclaim estimates and power-plan changes before applying (`@-apply`). Saves a rollback JSON snapshot (`--rollback-file`) when applying changes and protects critical system processes (`explorer.exe`, `MemCompression`, `TiWorker.exe`, and core Windows services).
+-  **Rollback Restoration (`syspulse restore`)**: Restores the previous power scheme from a saved rollback snapshot.
 
 ## Setup
 
-```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -e ".[dev]"
-```
+ ``powershell
+python -m venv
+ .ven\Scripts\pip.exe install -e ".[dev]"
+`h``��# Usage
 
-## Usage
+ ``powershell
+# Default live snapshot + optional JSON export
+.\venv\Scripts\syspulse.exe --disk C\\ --json-out .\reports\snapshot.json
 
-Run a live system snapshot and TCP latency check:
+# Read-only gaming readiness audit
+..\venv\Scripts\syspulse.exe audit --disk C\\ --min-free-gb 25 --top-n 5
 
-```powershell
-.\.venv\Scripts\syspulse.exe
-```
+# Safe dry-run preview (default)
+..\venv\Scripts\syspulse.exe tune
 
-Customize the disk path, ping target, or export a JSON report:
+# Apply safe optimizations and save rollback state
+..\venv\Scripts\syspulse.exe tune --apply --rollback-file .\.syspulse\rollback.json
 
-```powershell
-.\.venv\Scripts\syspulse.exe --disk C:\ --ping-host 1.1.1.1 --ping-port 443 --json-out reports\snapshot.json
-```
+# Restore from rollback snapshot
+..\venv\Scripts\syspulse.exe restore --rollback-file .\.syspulse\rollback.json
+```��# Running Tests
 
-## Running Tests
-
-```powershell
-.\.venv\Scripts\pytest.exe -v
+à``powershell
+..\venv\Scripts\pytest.exe -v
 ```
