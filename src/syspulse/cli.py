@@ -1,4 +1,4 @@
-﻿import json
+import json
 from pathlib import Path
 from typing import Annotated
 
@@ -90,6 +90,14 @@ def audit(
     summary_table.add_column("Status / Value", justify="right")
 
     summary_table.add_row("Active Power Plan", report.power_scheme)
+    if report.game_mode_enabled is True:
+        game_mode_str = "[green]Enabled[/green]"
+    elif report.game_mode_enabled is False:
+        game_mode_str = "[yellow]Disabled[/yellow]"
+    else:
+        game_mode_str = "Unknown"
+    summary_table.add_row("Windows Game Mode", game_mode_str)
+
     disk_status = f"{report.disk_free_gb:.2f} GB free"
     if report.disk_low_space_warning:
         disk_status = f"{disk_status} [yellow](LOW < {min_free_gb:.1f} GB)[/yellow]"
@@ -117,6 +125,7 @@ def audit(
         payload = {
             "audit": {
                 "power_scheme": report.power_scheme,
+                "game_mode_enabled": report.game_mode_enabled,
                 "disk_path": report.disk_path,
                 "disk_free_gb": report.disk_free_gb,
                 "disk_low_space_warning": report.disk_low_space_warning,
