@@ -43,3 +43,31 @@ def test_cli_outputs_table_and_json(tmp_path: Path) -> None:
     payload = json.loads(out_file.read_text(encoding="utf-8"))
     assert payload["snapshot"]["cpu_percent"] == 12.5
     assert payload["network"]["latency_ms"] == 18.42
+from syspulse.diagnostics import GamingAuditReport, ProcessLoad
+
+
+def test_cli_audit_command(tmp_path: Path) -> None:
+    report = GamingAuditReport(
+        power_scheme="Balanced",
+        disk_path="C:\\",
+        disk_free_gb=18.5,
+        disk_low_space_warning=True,
+        top_memory_processes=[
+            ProcessLoad(pid=4242, name="chrome.exe", cpu_percent=4.2, memory_mb=850.5),
+        ],
+    )
+    out_file = tmp_path / "audit.json"
+
+    with patch("syspulse.cli.collect_gaming_audit", return_value=report):
+        result = runner.invoke(app, ["audit", "--disk", "C:\\", "--json-out", str(out_file)])
+
+    assert result.exit_code == 0
+    assert "Gaming Readiness Audit" in result.stdout
+    assert "Balanced" in result.stdout
+    assert "chrome.exe" in result.stdout
+    assert out_file.exists()
+
+    payload = json.loads(out_file.read_text(encoding="utf-8"))
+    assert payload["audit"]["power_scheme"] == "Balanced"
+    assert payload["audit"]["disk_low_space_warning"] is True
+    assert payload["audit"]["top_memory_processes"][0]["name"] == "chrome.exe"
