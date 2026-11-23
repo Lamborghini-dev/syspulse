@@ -9,9 +9,16 @@ import typer
 from syspulse.diagnostics import collect_gaming_audit
 from syspulse.metrics import collect_snapshot
 from syspulse.network import check_tcp_latency
+from syspulse.optimizer import (
+    restore_from_rollback,
+    result_to_dict,
+    run_optimization,
+)
 
 app = typer.Typer(help="System telemetry and diagnostic CLI.")
 console = Console()
+
+DEFAULT_ROLLBACK_PATH = Path(".syspulse/rollback.json")
 
 
 def _run_snapshot(
@@ -119,3 +126,78 @@ def audit(
         json_out.parent.mkdir(parents=True, exist_ok=True)
         json_out.write_text(json.dumps(payload, indent=2), encoding="utf-8")
         console.print(f"[green]Saved JSON report to {json_out}[/green]")
+
+
+@app.command()
+def tune(
+    dry_run: Annotated[
+        bool,
+        typer.Option("--dry-run/--apply", help="Preview changes without modifying system state (default: dry-run)."),
+    ] = True,
+    clean_temp: Annotated[
+        bool,
+        typer.Option("--clean-temp/--no-clean-temp", help="Include temporary file cleanup in optimization plan."),
+    ] = True,
+    rollback_file: Annotated[
+        Path,
+        typer.Option("--rollback-file", help="Path to save rollback snapshot when applying changes."),
+    ] = DEFAULT_ROLLBACK_PATH,
+    json_out: Annotated[Path | None, typer.Option("--json-out", help="Optional path to save tune output as JSON.")] = None,
+) -> None:
+    """Preview or apply safe Windows gaming optimizations (defaults to --dry-run)."""
+    result = run_optimization(
+        dry_run=dry_run,
+        clean_temp=clean_temp,
+        rollback_path=rollback_file,
+    )
+
+    mode_label = "DRY RUN (No Changes Applied)" if result.dry_run else "APPLIED"
+    plan_table = Table(title=f"Gaming Optimization Plan [{mode_label}]")
+    plan_table.add_column("Action", style="bold cyan")
+    plan_table.add_column("Risk", justify="center")
+    plan_table.add_column("Reclaim (MB)", justify="right")
+    plan_table.add_column("Applied", justify="center")
+
+    for action in result.actions:
+        plan_table.add_row(
+            action.name,
+            action.risk,
+            f"{action.estimated_reclaim_mb:.2f}" if action.estimated_reclaim_mb else "-",
+            "yes" if action.applied else ("preview" if result.dry_run else "no"),
+        )
+
+    console.print(plan_table)
+    console.print(
+        f"Power Plan: [bold]{result.previous_power_scheme}[/bold] -> [bold]{result.target_power_scheme}[/bold] | "
+        f"Temp ({result.temp_dir}): [bold]{result.temp_size_mb:.2f} MB[/bold]"
+    )
+    if result.rollback_path:
+        console.print(f"[green]Rollback snapshot saved to {result.rollback_path}[/green]")
+
+    if json_out is not None:
+        json_out.parent.mkdir(parents=True, exist_ok=True)
+        json_out.write_text(json.dumps({"tune": result_to_dict(result)}, indent=2), encoding="utf-8")
+        console.print(f"[green]Saved JSON report to {json_out}[/green]")
+
+
+@app.command()
+def restore(
+    rollback_file: Annotated[
+        Path,
+        typer.Option("--rollback-file", help="Path to rollback snapshot JSON file."),
+    ] = DEFAULT_ROLLBACK_PATH,
+) -> None:
+    """Restore previous system configuration from a saved rollback snapshot."""
+    if not rollback_file.exists():
+        console.print(f"[red]Rollback file not found: {rollback_file}[/red]")
+        raise typer.Exit(code=1)
+
+    outcome = restore_from_rollback(rollback_file)
+    if outcome["restored"]:
+        console.print(
+            f"[green]Restored power scheme '{outcome['previous_power_scheme']}' ({outcome['applied_guid']}).[/green]"
+        )
+    else:
+        console.print(
+            f"[yellow]Attempted restore of '{outcome['previous_power_scheme']}' ({outcome['applied_guid']}), but powercfg returned non-zero.[/yellow]"
+        )
